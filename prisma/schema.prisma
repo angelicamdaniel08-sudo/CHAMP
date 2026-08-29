@@ -1,0 +1,92 @@
+// Prisma Schema for CHAMP (Campus Healthcare Accessibility & Management Platform)
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                  String              @id @default(uuid())
+  name                String
+  email               String              @unique
+  role                String              @default("STUDENT") // STUDENT | DOCTOR | PHARMACIST | COUNSELOR
+  hostelBlock         String?             // e.g., "Block A - Room 302"
+  phone               String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  appointments        Appointment[]
+  prescriptions       Prescription[]
+  emergencyDispatches EmergencyDispatch[]
+}
+
+model Doctor {
+  id                 String             @id @default(uuid())
+  name               String
+  specialty          String             // e.g., "General Medicine", "Psychiatry / Counselor", "Dermatology"
+  availabilityStatus String             @default("AVAILABLE") // AVAILABLE | BUSY | OFFLINE
+  currentQueueLength Int                @default(0)
+  roomNumber         String?            // e.g., "Health Center - Room 104"
+  email              String?            @unique
+  phone              String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  appointments       Appointment[]
+}
+
+model Appointment {
+  id          String            @id @default(uuid())
+  studentId   String
+  doctorId    String
+  status      String            @default("QUEUED") // QUEUED | IN_PROGRESS | COMPLETED | CANCELLED
+  queueNumber Int
+  reason      String?           // e.g., "Fever and mild cough"
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  student     User              @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  doctor      Doctor            @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+}
+
+model Prescription {
+  id                    String             @id @default(uuid())
+  studentId             String
+  imageBase64OrUrl      String             // URL or base64 string of prescription image
+  status                String             @default("PENDING") // PENDING | VERIFIED | DISPATCHED
+  hostelDeliveryAddress String             // e.g., "Hostel B, Room 214"
+  notes                 String?            // e.g., "Deliver Paracetamol 500mg, Cetirizine"
+  pharmacistNotes       String?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  student               User               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model HealthAlert {
+  id        String    @id @default(uuid())
+  title     String
+  message   String
+  alertType String    @default("GENERAL") // EPIDEMIC | HEATWAVE | VACCINATION | GENERAL
+  severity  String    @default("HIGH")    // LOW | MEDIUM | HIGH | CRITICAL
+  isActive  Boolean   @default(true)
+  timestamp DateTime  @default(now())
+}
+
+model EmergencyDispatch {
+  id            String          @id @default(uuid())
+  studentId     String?
+  studentName   String?         // Fallback if guest/unregistered student triggers emergency
+  contactNumber String?
+  location      String          // e.g., "Hostel Block C - 2nd Floor Corridor" or GPS coordinates
+  details       String?         // e.g., "Severe allergic reaction, breathing difficulty"
+  status        String          @default("DISPATCHED") // DISPATCHED | RESPONDING | RESOLVED
+  timestamp     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  student       User?           @relation(fields: [studentId], references: [id], onDelete: SetNull)
+}
